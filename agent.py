@@ -1,9 +1,10 @@
 import os
 import google.generativeai as genai
 import pandas as pd
+from datetime import datetime  # Добавляем работу с датами
 from dotenv import load_dotenv
 
-# 1. Настройки
+# 1. Настройки и библиотеки
 try:
     import openpyxl
 except ImportError:
@@ -14,29 +15,24 @@ genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 # 2. ФУНКЦИИ-УМЕНИЯ
 
-def create_folders(project_name):
-    folders = [f"{project_name}/code", f"{project_name}/data", f"{project_name}/docs"]
-    for folder in folders:
-        os.makedirs(folder, exist_ok=True)
-    return f"✅ Структура проекта '{project_name}' создана!"
-
-def create_excel_report(filename, user_text):
+def create_excel_report(user_text):
     try:
         lines = user_text.split(';')
         data = []
-        total_sum = 0 # Переменная для хранения общей суммы
+        total_sum = 0
         
         for line in lines:
             columns = [item.strip() for item in line.split(',')]
             
-            # Проверяем, что у нас есть Название, Кол-во и Цена (3 колонки)
-            if len(columns) >= 3:
+            # Проверяем, что в строке 3 колонки
+            if len(columns) == 3:
                 name = columns[0]
                 try:
-                    quantity = float(columns[1]) # Превращаем текст в число
-                    price = float(columns[2])    # Превращаем текст в число
-                    cost = quantity * price      # Считаем стоимость позиции
-                    total_sum += cost            # Прибавляем к общей сумме
+                    # Защита: пробуем превратить в числа. Если там текст - уйдем в except
+                    quantity = float(columns[1])
+                    price = float(columns[2])
+                    cost = quantity * price
+                    total_sum += cost
                     
                     data.append({
                         "Наименование": name,
@@ -45,47 +41,44 @@ def create_excel_report(filename, user_text):
                         "Всего": cost
                     })
                 except ValueError:
-                    continue # Если вместо числа ввели текст, пропускаем строку
+                    print(f"⚠️ Пропускаю строку '{line}': проверьте числа (используйте точку вместо запятой в числах)")
+                    continue
         
         if not data:
-            return "❌ Ошибка: используй формат 'Товар, Кол-во, Цена; ...'"
+            return "❌ Ошибка: не нашел данных для расчета. Формат: Товар, Кол-во, Цена;"
 
-        # Создаем таблицу
         df = pd.DataFrame(data)
         
-        # Добавляем пустую строку и строку "ИТОГО" в конец
+        # Добавляем строку ИТОГО
         final_row = pd.DataFrame([{"Наименование": "ИТОГО:", "Всего": total_sum}])
         df = pd.concat([df, final_row], ignore_index=True)
 
-        file_name = f"{filename}.xlsx"
-        df.to_excel(file_name, index=False, engine='openpyxl')
+        # АВТО-ДАТА: Создаем имя файла типа Smeta_20-03-2026.xlsx
+        current_date = datetime.now().strftime("%d-%m-%Y_%H-%M")
+        file_name = f"Smeta_{current_date}.xlsx"
         
-        return f"✅ Смета '{file_name}' готова! Сумма: {total_sum} грн."
+        df.to_excel(file_name, index=False, engine='openpyxl')
+        return f"✅ Смета создана автоматически: '{file_name}'. Сумма: {total_sum} грн."
     except Exception as e:
-        return f"❌ Ошибка: {e}"
+        return f"❌ Критическая ошибка: {e}"
 
 # 3. ГЛАВНАЯ ЛОГИКА
 model = genai.GenerativeModel('gemini-1.5-flash')
 
 def start_agent():
-    print("\n" + "="*40)
-    print("--- RomanDev AI: Калькулятор Смет v3.0 ---")
-    print("="*40 + "\n")
+    print("\n" + "="*45)
+    print("--- RomanDev AI: Умная Смета (с авто-датой) ---")
+    print("="*45 + "\n")
     
     while True:
         user_input = input("Вы: ")
         if user_input.lower() in ['выход', 'exit']: break
         
-        if "создай проект" in user_input.lower():
-            name = user_input.split()[-1]
-            print(f"Агент: {create_folders(name)}")
-            continue
-
+        # Упрощенная команда: теперь не надо вводить имя файла вручную!
         if "запиши в таблицу" in user_input.lower():
-            fname = input("Имя файла: ")
-            print("Введите данные (Формат: Товар, Кол-во, Цена; ...)")
+            print("Агент: Введите данные (Формат: Товар, Кол-во, Цена; ...)")
             raw_data = input("Данные: ")
-            print(f"Агент: {create_excel_report(fname, raw_data)}")
+            print(f"Агент: {create_excel_report(raw_data)}")
             continue
 
         try:
