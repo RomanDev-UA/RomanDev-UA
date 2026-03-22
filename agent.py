@@ -1,84 +1,81 @@
 import os
 from datetime import datetime
 
-# --- 1. ИНЖЕНЕРНОЕ ЯДРО (Расчет деталей) ---
-def calculate_frame(L, W, H, step=500):
-    levels = int(H / step)
-    cut_list = [
-        {"item": "Стойка (вертикаль)", "qty": 4, "size": H},
-        {"item": "Перемычка (длина)", "qty": levels * 2, "size": L},
-        {"item": "Перемычка (ширина)", "qty": levels * 2, "size": W}
-    ]
-    return cut_list
+# --- 1. ЗАГРУЗКА ЦЕН ---
+def load_prices():
+    filename = "prices.txt"
+    if not os.path.exists(filename):
+        # Базовый набор (Название, Вес, Цена)
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write("1:Труба 20x20x2,1.08,65\n2:Труба 40x40x2,2.33,130\n3:Труба 60x40x2,2.96,170")
+    
+    prices = {}
+    with open(filename, "r", encoding="utf-8") as f:
+        for line in f:
+            k, data = line.strip().split(":")
+            name, w, p = data.split(",")
+            prices[k] = {"name": name, "weight": float(w), "price": float(p)}
+    return prices
 
-# --- 2. БАЗА ДАННЫХ МЕТАЛЛОПРОКАТА ---
-# Вес взят средний для толщины стенки 2мм (кроме 80х80)
-metal_base = {
-    "1": {"name": "Труба 20х20х2", "weight": 1.08, "price": 60},
-    "2": {"name": "Труба 25х25х2", "weight": 1.39, "price": 75},
-    "3": {"name": "Труба 30х30х2", "weight": 1.70, "price": 95},
-    "4": {"name": "Труба 40х20х2", "weight": 1.70, "price": 95},
-    "5": {"name": "Труба 40х40х2", "weight": 2.33, "price": 125},
-    "6": {"name": "Труба 50х50х2", "weight": 2.96, "price": 160},
-    "7": {"name": "Труба 60х30х2", "weight": 2.64, "price": 145},
-    "8": {"name": "Труба 60х40х2", "weight": 2.96, "price": 165},
-    "9": {"name": "Труба 80х80х3", "weight": 7.00, "price": 380}
-}
+# --- 2. ИНЖЕНЕРНОЕ ЯДРО (Геометрия + 3D точки) ---
+def calculate_complex(L, W, H, step=500):
+    levels = int(H / step)
+    # Список деталей
+    details = [
+        {"item": "Стойка", "qty": 4, "size": H},
+        {"item": "Длинная перемычка", "qty": levels * 2, "size": L},
+        {"item": "Короткая перемычка", "qty": levels * 2, "size": W}
+    ]
+    # Генерируем 8 ключевых точек для 3D (углы каркаса)
+    nodes = [
+        (0,0,0), (L,0,0), (L,W,0), (0,W,0),
+        (0,0,H), (L,0,H), (L,W,H), (0,W,H)
+    ]
+    return details, nodes
 
 # --- 3. ГЛАВНЫЙ ЦИКЛ ---
-print("--- RomanDev AI: Профессиональный Инженерный Агент ---")
+print("--- RomanDev Engineering Suite v3.0 запущен ---")
 
 while True:
-    print("\n" + "="*40)
-    user_input = input("Введите габариты (Длина, Ширина, Высота в мм) или 'выход': ")
-    
-    if user_input.lower() == 'выход':
-        print("До связи! Проект сохранен.")
-        break
+    metal_base = load_prices()
+    print("\n" + "="*50)
+    user_input = input("Введите L, W, H (мм) или 'выход': ")
+    if user_input.lower() == 'выход': break
     
     try:
         L, W, H = map(float, user_input.split(','))
         
-        # ВЫБОР ТИПА ТРУБЫ
-        print("\nДОСТУПНЫЙ МЕТАЛЛОПРОКАТ:")
-        for k, v in metal_base.items():
-            print(f"{k}. {v['name']} ({v['price']} грн/м)")
-            
-        m_choice = input("\nВыберите номер трубы (по умолчанию 40х40): ")
-        selected = metal_base.get(m_choice, metal_base["5"])
+        print("\nВЫБЕРИТЕ МЕТАЛЛ:")
+        for k, v in metal_base.items(): print(f"{k}. {v['name']}")
+        choice = input("Номер: ")
+        sel = metal_base.get(choice, metal_base["2"])
         
-        # Расчет
-        details = calculate_frame(L, W, H)
-        W_M = selected["weight"]
-        P_M = selected["price"]
-        M_NAME = selected["name"]
+        # РАСЧЕТЫ
+        details, nodes = calculate_complex(L, W, H)
+        total_m = sum((d['qty'] * d['size']) / 1000 for d in details)
         
-        total_m = 0
-        output = f"\n--- ЗАКАЗ: {M_NAME} | РАЗМЕР: {L}x{W}x{H} мм ---\n"
+        # ЭКОНОМИКА (Путь 1)
+        mat_cost = total_m * sel['price']
+        consumables = mat_cost * 0.10  # 10% на расходники (электроды, диски)
+        work_cost = mat_cost * 0.40    # 40% за работу (сварка, зачистка)
+        total_price = mat_cost + consumables + work_cost
         
-        for d in details:
-            line_m = (d['qty'] * d['size']) / 1000
-            total_m += line_m
-            output += f"• {d['item']}: {d['qty']} шт по {d['size']} мм ({line_m:.2f} м)\n"
+        # ВЫВОД НА ЭКРАН
+        res = f"\n📊 ПОЛНАЯ СМЕТА ({sel['name']}):"
+        res += f"\n- Металл: {mat_cost:.0f} грн ({total_m:.2f} м)"
+        res += f"\n- Расходники: {consumables:.0f} грн"
+        res += f"\n- Работа (сварка/сборка): {work_cost:.0f} грн"
+        res += f"\n🔥 ИТОГО К ОПЛАТЕ: {total_price:.0f} грн"
+        print(res)
 
-        total_w = total_m * W_M
-        total_c = total_m * P_M
+        # ЭКСПОРТ ДАННЫХ (Путь 2 и 3)
+        with open("project_data.txt", "w") as f:
+            f.write(f"MODEL:{L},{W},{H}\n")
+            f.write(f"NODES:{nodes}\n") # Это задел для 3D-скрипта в Blender
+            f.write(f"TOTAL_PRICE:{total_price}\n")
         
-        footer = f"\n📊 ИТОГИ РАСЧЕТА:"
-        footer += f"\n- Общий метраж: {total_m:.2f} м.п."
-        footer += f"\n- Вес конструкции: {total_w:.1f} кг"
-        footer += f"\n- Сметная стоимость: {total_c:.0f} грн"
-        footer += f"\n{'-'*40}\n"
-        
-        print(output + footer)
-        
-        # ЗАПИСЬ В ФАЙЛ
-        with open("SMETA.txt", "a", encoding="utf-8") as f:
-            f.write(f"\nДАТА: {datetime.now().strftime('%d.%m.%Y %H:%M')}\n")
-            f.write(output + footer)
-        
-        print("✅ Расчет успешно добавлен в SMETA.txt")
+        print("\n💾 Данные для 3D и Веб сохранены в project_data.txt")
 
-    except ValueError:
-        print("❌ Ошибка! Нужно 3 числа через запятую. Пример: 2000, 800, 1200")
+    except Exception as e:
+        print(f"❌ Ошибка: {e}")
         
