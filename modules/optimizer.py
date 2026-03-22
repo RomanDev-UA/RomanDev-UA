@@ -1,21 +1,29 @@
 def optimize_cutting(required_parts, stock_length=6000, kerf=3):
     """
-    kerf=3 — это толщина диска болгарки (3 мм на каждый рез)
+    Алгоритм оптимальной нарезки (Bin Packing).
+    kerf — толщина реза болгарки (3 мм).
     """
+    # Сортируем детали от больших к меньшим для лучшей упаковки
     parts = sorted(required_parts, reverse=True)
+    
+    # Список труб (хлыстов). Каждая труба — это словарь с остатком и списком деталей.
     bins = []
 
     for part in parts:
         placed = False
-        for i in range(len(bins)):
-            # Проверяем: влезет ли деталь + запас на рез
-            if bins[i] >= (part + kerf):
-                bins[i] -= (part + kerf)
+        # Пробуем положить деталь в уже начатую трубу
+        for b in bins:
+            if b["rem"] >= (part + kerf):
+                b["cuts"].append(part)
+                b["rem"] -= (part + kerf)
                 placed = True
                 break
         
+        # Если в старые не влезло — открываем новую 6-метровую трубу
         if not placed:
-            # От новой трубы отнимаем деталь и один рез
-            bins.append(stock_length - part - kerf)
+            bins.append({
+                "cuts": [part],
+                "rem": stock_length - part - kerf
+            })
     
-    return len(bins), bins
+    return bins
