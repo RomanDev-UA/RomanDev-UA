@@ -40,10 +40,30 @@ while True:
     try:
         L, W, H = map(float, user_input.split(','))
         
-        print("\nВЫБЕРИТЕ ТИП МЕТАЛЛА:")
-        for k, v in metal_base.items(): print(f"{k}. {v['name']}")
-        choice = input("Номер позиции: ")
-        sel = metal_base.get(choice, metal_base["2"])
+        # --- УМНЫЙ ПОИСК МЕТАЛЛА ---
+        print("\n🔍 Какой профиль ищем? (например: 20 или 40 или 100)")
+        search = input("Введите размер или 'все': ").lower()
+        
+        filtered = {}
+        print("\n🔎 НАЙДЕННЫЕ ВАРИАНТЫ:")
+        
+        for k, v in metal_base.items():
+            # Если в названии трубы есть то, что мы ввели (например '40')
+            if search == 'все' or search in v['name']:
+                filtered[k] = v
+                print(f"{k}. {v['name']}")
+        
+        # Если ничего не нашли по запросу
+        if not filtered:
+            print("❌ Ничего не найдено. Вот весь список:")
+            for k, v in metal_base.items(): 
+                print(f"{k}. {v['name']}")
+            filtered = metal_base
+
+        choice = input("\nВведите НОМЕР из списка выше: ")
+        # Берем выбранную трубу, или первую из найденных, если ввели ерунду
+        sel = filtered.get(choice, list(filtered.values())[0])
+        
         
         # 1. Генерируем список всех деталей каркаса
         details = calculate_frame(L, W, H)
