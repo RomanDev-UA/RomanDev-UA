@@ -1,10 +1,14 @@
 import os
 from datetime import datetime
+import re
 
-# --- ИМПОРТЫ МОДУЛЕЙ (В НАЧАЛЕ) ---
-from modules.optimizer import optimize_cutting
-from modules.renderer import generate_3d_model
-from modules.pdf_report import create_pdf_report  # Наш новый "печатный цех"
+# --- ИМПОРТЫ МОДУЛЕЙ ---
+try:
+    from modules.optimizer import optimize_cutting
+    from modules.renderer import generate_3d_model
+    from modules.pdf_report import create_pdf_report
+except ImportError as e:
+    print(f"⚠️ Ошибка импорта: {e}. Проверь папку modules!")
 
 def load_prices():
     prices = {}
@@ -12,72 +16,73 @@ def load_prices():
         with open("prices.txt", "r", encoding="utf-8") as f:
             for line in f:
                 if ":" in line:
-                    k, data = line.strip().split(":")
-                    name, w, p = data.split(",")
-                    prices[k] = {"name": name, "weight": float(w), "price": float(p)}
+                    try:
+                        k, data = line.strip().split(":")
+                        name, w, p = data.split(",")
+                        prices[k] = {"name": name, "weight": float(w), "price": float(p)}
+                    except: continue
     return prices
 
 def calculate_frame(L, W, H, step=500):
-    levels = int(H / step)
-    if levels < 1: levels = 1
+    levels = max(1, int(H / step))
     return [
         {"item": "Стойка", "qty": 4, "size": H},
         {"item": "Перемычка L", "qty": levels * 2, "size": L},
         {"item": "Перемычка W", "qty": levels * 2, "size": W}
     ]
 
-print("--- RomanDev Engineering Suite v5.0 (Full PDF & 3D) ---")
+print("--- RomanDev Engineering Suite v5.0 (Full Integration) ---")
 
 while True:
     metal_base = load_prices()
     print("\n" + "="*60)
     user_input = input("Введите L, W, H (мм) через запятую или 'выход': ")
-    if user_input.lower() in ['выход', 'exit', 'quit']: break
+    if user_input.lower() in ['выход', 'exit']: break
     
     try:
-        # Парсим ввод
         L, W, H = map(float, user_input.split(','))
+        search = input("🔍 Что ищем? (номер или название): ").lower()
+        filtered = {k: v for k, v in metal_base.items() if search in v['name'].lower() or search == k}
         
-        # Поиск металла
-        search = input("🔍 Какой профиль ищем? (напр. 40 или 'все'): ").lower()
-        filtered = {k: v for k, v in metal_base.items() if search in v['name'].lower() or search == 'все'}
         if not filtered: filtered = metal_base
-        
         for k, v in filtered.items(): print(f"{k}. {v['name']}")
-        choice = input("Номер позиции из списка: ")
+        
+        choice = input("Номер позиции: ")
         sel = filtered.get(choice, list(filtered.values())[0])
 
         # 1. Расчет деталей
         details = calculate_frame(L, W, H)
         all_pieces = [d['size'] for d in details for _ in range(int(d['qty']))]
         
-        # 2. Оптимизация нарезки (хлысты по 6000мм, рез 3мм)
+        # 2. Оптимизация (хлысты 6м, рез 3мм)
         bins = optimize_cutting(all_pieces, 6000, kerf=3)
         
-        # 3. Экономика
+        # 3. Экономика и Физика
         total_cost = len(bins) * 6 * sel['price']
         total_weight = len(bins) * 6 * sel['weight']
-
-        # 4. Определяем толщину для 3D (ищем цифру в названии)
-        t_val = 40
-        for word in sel['name'].replace('х',' ').split():
-            if word.replace('.','',1).isdigit():
-                t_val = float(word)
-                break
-
-        # --- ВОТ ТУТ В КОНЦЕ МЫ ВСТАВЛЯЕМ ГЕНЕРАЦИЮ ФАЙЛОВ ---
+        net_weight = (sum(all_pieces) / 1000) * sel['weight']
+        waste_percent = ((total_weight - net_weight) / total_weight) * 100
         
-        # Генерируем 3D-модель (теперь со всеми перемычками)
-        generate_3d_model(L, W, H, details, t_val)
-        
-        # Генерируем PDF-отчет для печати
-        create_pdf_report(L, W, H, sel['name'], total_cost, total_weight, bins)
+        # Извлекаем толщину стенки (последнее число в названии)
+        nums = re.findall(r"[-+]?\d*\.\d+|\d+", sel['name'])
+        wall = float(nums[-1]) if nums else 2.0
 
-        print(f"\n✅ РАСЧЕТ ЗАВЕРШЕН!")
-        print(f"💰 Цена: {total_cost:.0f} грн | Вес: {total_weight:.1f} кг")
-        print(f"📦 Созданы файлы: 'frame_model.obj' и 'Order_Report.pdf'")
+        if wall <= 1.5:
+            risk, advice = "КРИТИЧЕСКИЙ", "Варить только прихватками! Металл ведет."
+        elif wall <= 3.0:
+            risk, advice = "УМЕРЕННЫЙ", "Соблюдать очередность швов. Стандартный ток."
+        else:
+            risk, advice = "НИЗКИЙ", "Можно варить сплошным швом. Высокая жесткость."
+
+        # --- ГЕНЕРАЦИЯ ---
+        generate_3d_model(L, W, H, details, t=40)
+        
+        # ПЕРЕДАЧА В PDF (Обрати внимание на новые аргументы!)
+        create_pdf_report(L, W, H, sel['name'], total_cost, total_weight, bins, advice, waste_percent)
+
+        print(f"\n✅ ГОТОВО! Вес: {total_weight:.1f}кг | Отходы: {waste_percent:.1f}%")
+        print(f"📢 Совет: {advice}")
 
     except Exception as e:
-        print(f"❌ Ошибка в расчетах: {e}")
-
-print("\nПрограмма завершена. Хорошего дня, Роман!")
+        print(f"❌ Ошибка: {e}")
+        
