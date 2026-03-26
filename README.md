@@ -1,17 +1,23 @@
-# 🛠️ RomanDev Engineering Suite v3.0
+# Привет! Я Роман 👋 
+### Будущий Python Developer | 3D Enthusiast | Creator of Solar Fantasy
 
-Профессиональный программный комплекс для проектирования и расчета металлоконструкций. Создано для автоматизации работы инженера-сварщика и ландшафтного дизайнера.
+![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
+![Git](https://img.shields.io/badge/git-%23F05033.svg?style=for-the-badge&logo=git&logoColor=white)
+![Unreal Engine](https://img.shields.io/badge/unrealengine-%23313131.svg?style=for-the-badge&logo=unrealengine&logoColor=white)
 
-## 🚀 Основные возможности:
-* **Инженерный калькулятор:** Автоматический расчет детализации (Cut List) для каркасов по заданным габаритам (L, W, H).
-* **Умный Прайс-лист:** Поддержка более 20 видов профильных труб, уголков и полос. Цены легко обновляются через внешний файл `prices.txt`.
-* **Экономический модуль:** Расчет стоимости металла, расходных материалов (10%) и стоимости сварочных работ (40%).
-* **3D-экспорт:** Генерация геометрических координат (NODES) для последующего импорта в Blender/AutoCAD.
-* **Авто-смета:** Каждое вычисление сохраняется в файл `SMETA.txt` с полной детализацией для клиента.
+---
 
-## 📦 Установка и запуск:
-1. Убедитесь, что установлен **Python 3.x**.
-2. Склонируйте репозиторий:
-   ```bash
-   git clone [https://github.com/RomanDev-UA/RomanDev-UA.git](https://github.com/RomanDev-UA/RomanDev-UA.git)
+## 🚀 Обо мне:
+- 👨‍💻 Изучаю **Python** для автоматизации и разработки на **Unreal Engine**.
+- 🏗️ В прошлом — опыт в строительстве и технических чертежах (nanoCAD).
+- 🎨 Сейчас создаю проект **"Solar Fantasy"** (Blender + Skybox AI).
+- 🛠️ Работаю на мобильной станции **Fujitsu Celsius H720**.
+
+## 📊 Моя активность:
+![Roman's GitHub stats](https://github-readme-stats.vercel.app/api?username=RomanDev-UA&show_icons=true&theme=radical)
+
+---
+
+## 📫 Как меня найти:
+[ ![Telegram](https://img.shields.io/badge/Telegram-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white) ](https://t.me/@RomanDev79)
    
