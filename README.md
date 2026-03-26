@@ -32,6 +32,26 @@
 ---
 
 ## 📫 Контакты разработчика:
+[![Telegram](https://img.shields.io/badge/Telegram-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/RomanDev79)/img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
+![OS Automation](https://img.shields.io/badge/OS_Lib-Automation-green)
+![Git](https://img.shields.io/badge/git-%23F05033.svg?style=for-the-badge&logo=git&logoColor=white)
+
+---
+
+## 🏗️ Как это работает:
+Агент берет на себя рутину по созданию окружения. Например, одним запуском создается структура:
+`Project_Name_YYYY-MM-DD` 
+   ├── `Drawings_nCAD` 
+   ├── `Scripts_Py` 
+   ├── `Assets_3D` 
+   └── `Docs`
+
+## 💻 Hardware Context:
+Проект оптимизирован под работу с графической подсистемой **NVIDIA Quadro K1000M** и специфику немецкой раскладки клавиатуры Fujitsu (автоматизация захвата через `Druck`).
+
+---
+
+## 📫 Контакты разработчика:
 [![Telegram](https://img.shields.io/badge/Telegram-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/RomanDev79)
 g?style=for-the-badge&logo=git&logoColor=white)
 ![Unreal Engine](https://img.shields.io/badge/unrealengine-%23313131.svg?style=for-the-badge&logo=unrealengine&logoColor=white)
