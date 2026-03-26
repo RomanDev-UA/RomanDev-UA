@@ -97,15 +97,41 @@ if calc and found_name:
     st.subheader(f"📊 Аналитика для: {found_name}")
     
     if not is_sheet:
-        # Расчет веса каркаса (12 ребер)
-        total_len_m = ((L_f * 4) + (W_f * 4) + (H_f * 4)) / 1000
-        weight_total = total_len_m * sel['weight']
-        cost_total = weight_total * sel['price']
+        # 1. ЧИСТЫЙ РАСЧЕТ
+        pure_len_m = ((L_f * 4) + (W_f * 4) + (H_f * 4)) / 1000
         
+        # 2. УЧЕТ ОСТАТКОВ И РЕЗА (+5%)
+        total_len_m = pure_len_m * 1.05
+        
+        # 3. ВЕС И ЦЕНА (с учетом "перегрева" бюджета на расходники +10%)
+        weight_total = total_len_m * sel['weight']
+        # Добавляем 10% к цене на электроды/диски/краску
+        cost_total = (weight_total * sel['price']) * 1.10
+        
+        # ВЫВОД МЕТРИК
         col1, col2, col3 = st.columns(3)
-        col1.metric("Общий вес", f"{weight_total:.2f} кг")
-        col2.metric("Длина проката", f"{total_len_m:.2f} м")
-        col3.metric("Стоимость", f"{cost_total:.0f} грн")
+        col1.metric("Вес (+5% запас)", f"{weight_total:.2f} кг")
+        col2.metric("Длина с обрезом", f"{total_len_m:.2f} м")
+        col3.metric("Итого (с расходниками)", f"{cost_total:.0f} грн")
+
+        # В отчет (report_text) тоже добавим эти данные:
+        report_text = f"""ОТЧЕТ: ROMAN_DEV IRON WORKS
+-------------------------------------------
+Материал: {found_name}
+Габариты: {L_f}x{W_f}x{H_f} мм
+
+ДЕТАЛИЗАЦИЯ (Чистый размер):
+- Стойки: 4 шт x {H_f} мм
+- Прогоны: 4 шт x {L_f} мм
+- Поперечины: 4 шт x {W_f} мм
+
+ЭКОНОМИКА (С учетом запаса 5% и расходников 10%):
+- Общая длина закупки: {total_len_m:.2f} м
+- Расчетный вес: {weight_total:.2f} кг
+- Итоговая сумма: {cost_total:.0f} грн
+-------------------------------------------
+"""
+        
 
         # --- 3D ВИЗУАЛИЗАЦИЯ ---
         st.markdown("### 🏗️ 3D Визуализация каркаса")
@@ -137,7 +163,46 @@ if calc and found_name:
         ax.tick_params(axis='z', colors='gray')
         
         st.pyplot(fig)
+        # --- 5. ДЕТАЛИЗАЦИЯ И СКАЧИВАНИЕ ---
+        st.markdown("### 📋 Спецификация на резку")
+        
+        # Формируем таблицу деталей
+        df_cut = pd.DataFrame({
+            "Наименование": [f"Стойки (H)", f"Прогоны (L)", f"Поперечины (W)"],
+            "Кол-во (шт)": [4, 4, 4],
+            "Длина (мм)": [H_f, L_f, W_f],
+            "Итого (м)": [(H_f*4)/1000, (L_f*4)/1000, (W_f*4)/1000]
+        })
+        st.table(df_cut)
+
+        # Формируем текст для скачивания
+        report_text = f"""ОТЧЕТ ПО РАСЧЕТУ: ROMAN_DEV IRON WORKS
+-------------------------------------------
+Материал: {found_name}
+Габариты каркаса: {L_f}x{W_f}x{H_f} мм
+
+ДЕТАЛИЗАЦИЯ ДЛЯ РЕЗКИ:
+1. Стойки (Высота H): 4 шт x {H_f} мм
+2. Прогоны (Длина L): 4 шт x {L_f} мм
+3. Поперечины (Ширина W): 4 шт x {W_f} мм
+
+ИТОГО:
+- Общая длина проката: {total_len_m:.2f} м
+- Общий вес: {weight_total:.2f} кг
+- Ориентировочная стоимость: {cost_total:.0f} грн
+-------------------------------------------
+Дата расчета: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M')}
+"""
+
+        # КНОПКА СКАЧИВАНИЯ
+        st.download_button(
+            label="📥 СКАЧАТЬ РЕЗУЛЬТАТ (.TXT)",
+            data=report_text,
+            file_name=f"Calculation_{L_f}x{W_f}x{H_f}.txt",
+            mime="text/plain",
+            use_container_width=True
+        )
+
     else:
         st.success(f"Расчет для листов выполнен! Вес: {(L_d*W_d*Qty/1000000)*sel['weight']:.2f} кг")
         st.info("3D модель для листов будет добавлена в v8.1")
-        
