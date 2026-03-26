@@ -91,10 +91,11 @@ with st.sidebar:
             Qty = st.number_input("Количество (шт)", 10)
         else:
             st.markdown("### 📏 Параметры Каркаса")
-            L_f = st.number_input("Длина L (мм)", 2000)
-            W_f = st.number_input("Ширина W (мм)", 1500)
-            H_f = st.number_input("Высота H (мм)", 1000)
-            kerf = st.slider("Толщина реза (мм)", 0, 10, 3)
+        
+        L_f = st.number_input("Длина L (мм)", min_value=0, value=2000, step=10)
+        W_f = st.number_input("Ширина W (мм)", min_value=0, value=1500, step=10)
+        H_f = st.number_input("Высота H (мм)", min_value=0, value=1000, step=10)
+        kerf = st.slider("Толщина реза (мм)", 0, 10, 3)
     else:
         st.error("Файл prices.txt не найден!")
         found_name = None
