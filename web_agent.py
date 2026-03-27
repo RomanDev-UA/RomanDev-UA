@@ -23,45 +23,67 @@ def generate_pdf_report(res, w_info):
     pdf = FPDF()
     pdf.add_page()
     
-    # Пытаемся найти шрифт в корне проекта
-    font_path = "arial.ttf"
+    font_path = "arial.ttf" # Убедись, что файл на GitHub называется именно так
     
+    # 1. Пытаемся подключить шрифт
+    font_success = False
     if os.path.exists(font_path):
-        # В новых версиях fpdf2 unicode=True не требуется
         try:
             pdf.add_font("CustomFont", "", font_path)
             pdf.set_font("CustomFont", "", 16)
-            title = "ОТЧЕТ ПО ЗАКАЗУ - IRON WORKS"
-        except Exception:
-            pdf.set_font("Helvetica", "B", 16)
-            title = "ORDER REPORT (Font Error)"
-    else:
-        # Если шрифта нет, используем стандартный (но он не поймет кириллицу)
-        pdf.set_font("Helvetica", "B", 16)
-        title = "ORDER REPORT - IRON WORKS"
+            font_success = True
+        except:
+            pass
 
-    pdf.cell(200, 10, txt=title, ln=True, align='C')
+    # 2. Если шрифт не загружен - используем латиницу, чтобы не было ошибки
+    if not font_success:
+        pdf.set_font("Helvetica", "B", 16)
+        t_header = "ORDER REPORT"
+        t_mat = "Material"
+        t_th = "Thick"
+        t_wt = "Weight"
+        t_total = "TOTAL"
+    else:
+        t_header = "ОТЧЕТ ПО ЗАКАЗУ - IRON WORKS"
+        t_mat = "Материал"
+        t_th = "Толщина"
+        t_wt = "Общий вес"
+        t_total = "ИТОГО К ОПЛАТЕ"
+
+    # Печать заголовка
+    pdf.cell(200, 10, txt=t_header, ln=True, align='C')
     pdf.ln(10)
     
-    # Используем тот же шрифт для тела отчета
-    current_font = "CustomFont" if "CustomFont" in pdf.fonts else "Helvetica"
-    pdf.set_font(current_font, "", 12)
-    
-    # Данные
-    pdf.cell(200, 10, txt=f"Материал: {res['name']}", ln=True)
-    pdf.cell(200, 10, txt=f"Толщина: {res['thick']} мм", ln=True)
-    pdf.cell(200, 10, txt=f"Количество к закупке: {res['buy_qty']} ед.", ln=True)
-    pdf.cell(200, 10, txt=f"Общий вес: {res['weight']:.1f} кг", ln=True)
-    pdf.cell(200, 10, txt=f"Процент отхода: {res['waste']:.1f}%", ln=True)
+    # Печать данных (используем переменные, чтобы избежать кириллицы при ошибке шрифта)
+    pdf.set_font(pdf.font_family, "", 12)
+    pdf.cell(200, 10, txt=f"{t_mat}: {res['name']}", ln=True)
+    pdf.cell(200, 10, txt=f"{t_th}: {res['thick']} mm", ln=True)
+    pdf.cell(200, 10, txt=f"{t_wt}: {res['weight']:.1f} kg", ln=True)
     pdf.ln(5)
-    pdf.cell(200, 10, txt=f"ИТОГО К ОПЛАТЕ: {res['total']:.0f} грн", ln=True)
-    pdf.ln(10)
-    pdf.cell(200, 10, txt="ПАРАМЕТРЫ ТЕХПРОЦЕССА:", ln=True)
-    pdf.cell(200, 10, txt=f"- Сила тока: {w_info['amp']}", ln=True)
-    pdf.cell(200, 10, txt=f"- Электрод: {w_info['electr']}", ln=True)
-    pdf.cell(200, 10, txt=f"- Метод: {w_info['meth']}", ln=True)
+    pdf.cell(200, 10, txt=f"{t_total}: {res['total']:.0f} UAH", ln=True)
     
-    return bytes(pdf.output())
+    return bytes(pdf.output()), font_success
+
+# --- В основном блоке кода (где кнопка) ---
+if calc_btn:
+    # ... твой расчет ...
+    
+    # Вызываем генерацию
+    try:
+        pdf_file, is_ok = generate_pdf_report(res_data, w_tech)
+        
+        if not is_ok:
+            st.warning("⚠️ Файл arial.ttf не найден на сервере. Отчет будет на английском.")
+            
+        st.download_button(
+            label="📥 СКАЧАТЬ ОТЧЕТ (PDF)",
+            data=pdf_file,
+            file_name="Report.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
+    except Exception as e:
+        st.error(f"Ошибка при создании PDF: {e}")
 
 
 # --- 3. ЗАГРУЗКА БАЗЫ ---
