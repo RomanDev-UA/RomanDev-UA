@@ -23,19 +23,29 @@ def generate_pdf_report(res, w_info):
     pdf = FPDF()
     pdf.add_page()
     
-    # Попытка загрузить шрифт для кириллицы
+    # Пытаемся найти шрифт в корне проекта
     font_path = "arial.ttf"
+    
     if os.path.exists(font_path):
-        pdf.add_font("CustomFont", "", font_path, unicode=True)
-        pdf.set_font("CustomFont", "", 16)
-        title = "ОТЧЕТ ПО ЗАКАЗУ - IRON WORKS"
+        # В новых версиях fpdf2 unicode=True не требуется
+        try:
+            pdf.add_font("CustomFont", "", font_path)
+            pdf.set_font("CustomFont", "", 16)
+            title = "ОТЧЕТ ПО ЗАКАЗУ - IRON WORKS"
+        except Exception:
+            pdf.set_font("Helvetica", "B", 16)
+            title = "ORDER REPORT (Font Error)"
     else:
+        # Если шрифта нет, используем стандартный (но он не поймет кириллицу)
         pdf.set_font("Helvetica", "B", 16)
         title = "ORDER REPORT - IRON WORKS"
 
     pdf.cell(200, 10, txt=title, ln=True, align='C')
     pdf.ln(10)
-    pdf.set_font("Helvetica" if not os.path.exists(font_path) else "CustomFont", "", 12)
+    
+    # Используем тот же шрифт для тела отчета
+    current_font = "CustomFont" if "CustomFont" in pdf.fonts else "Helvetica"
+    pdf.set_font(current_font, "", 12)
     
     # Данные
     pdf.cell(200, 10, txt=f"Материал: {res['name']}", ln=True)
@@ -52,6 +62,7 @@ def generate_pdf_report(res, w_info):
     pdf.cell(200, 10, txt=f"- Метод: {w_info['meth']}", ln=True)
     
     return bytes(pdf.output())
+
 
 # --- 3. ЗАГРУЗКА БАЗЫ ---
 @st.cache_data
@@ -164,4 +175,3 @@ if db:
             use_container_width=True
         )
         st.markdown('</div>', unsafe_allow_html=True)
-        
