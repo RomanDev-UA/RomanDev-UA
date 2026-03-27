@@ -2,21 +2,19 @@ import streamlit as st
 import os
 import plotly.graph_objects as go
 import re
-import math
 
-# --- 1. СТИЛИ ---
-st.set_page_config(page_title="IRON WORKS v9.9", layout="wide", page_icon="🏗️")
+# --- 1. СТИЛИ И ЗАГОЛОВОК ---
+st.set_page_config(page_title="IRON WORKS v10.1", layout="wide", page_icon="🏗️")
 st.markdown("""
     <style>
-    .brand-header { background: linear-gradient(90deg, #1e2130, #0072ff); padding: 20px; border-radius: 15px; text-align: center; border: 2px solid #00c6ff; margin-bottom: 25px; }
-    .brand-title { color: white !important; font-size: 42px; font-weight: 900; margin: 0; }
-    .brand-subtitle { color: #00c6ff !important; font-size: 16px; margin: 0; }
+    .reportview-container { background: #0e1117; }
+    .stMetric { background: #1e2130; padding: 10px; border-radius: 10px; border: 1px solid #3e445b; }
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="brand-header"><p class="brand-title">🏗️ IRON WORKS</p><p class="brand-subtitle">ROMAN_DEV | FULL PRICE ENGINE v9.9</p></div>', unsafe_allow_html=True)
+st.markdown('<div style="background: linear-gradient(90deg, #1e2130, #0072ff); padding: 20px; border-radius: 15px; text-align: center; border: 2px solid #00c6ff; margin-bottom: 25px;"><p style="color: white; font-size: 42px; font-weight: 900; margin: 0;">🏗️ IRON WORKS</p><p style="color: #00c6ff; font-size: 16px; margin: 0;">ROMAN_DEV | 3D SHEET & FRAME ENGINE v10.1</p></div>', unsafe_allow_html=True)
 
-# --- 2. ПАРСЕР ПОЛНОГО ПРАЙСА ---
+# --- 2. ПАРСЕР ПРАЙСА ---
 @st.cache_data
 def load_prices():
     prices = {}
@@ -26,14 +24,16 @@ def load_prices():
                 line = line.strip()
                 if not line or "," not in line: continue
                 try:
-                    # Убираем нумерацию "1:", "2:" и т.д.
                     clean_line = re.sub(r'^\d+:\s*', '', line)
                     parts = clean_line.split(",")
-                    if len(parts) >= 3:
-                        name = ",".join(parts[:-2]).strip()
-                        weight = float(parts[-2].replace(",", ".").strip())
-                        price = float(parts[-1].replace(",", ".").strip())
-                        prices[name] = {"weight": weight, "price": price}
+                    name = ",".join(parts[:-2]).strip()
+                    weight = float(parts[-2].replace(",", "."))
+                    price = float(parts[-1].replace(",", "."))
+                    # Ищем толщину (мм) в названии
+                    thick_match = re.findall(r'(\d+\.\d+|\d+)\s*мм', name.lower())
+                    if not thick_match: thick_match = re.findall(r'(\d+\.\d+|\d+)', name)
+                    thick = float(thick_match[-1]) if thick_match else 2.0
+                    prices[name] = {"weight": weight, "price": price, "thick": thick}
                 except: continue
     return prices
 
@@ -43,100 +43,75 @@ all_prices = load_prices()
 with st.sidebar:
     st.header("⚙️ ВВОД ДАННЫХ")
     if all_prices:
-        mat_list = list(all_prices.keys())
-        selected_mat = st.selectbox("ВЫБЕРИТЕ МАТЕРИАЛ:", options=mat_list)
+        selected_mat = st.selectbox("ВЫБОР МАТЕРИАЛА:", options=list(all_prices.keys()))
         data = all_prices[selected_mat]
-        
         is_sheet = "Лист" in selected_mat
-        is_round = "круглая" in selected_mat.lower()
         
         st.divider()
         if is_sheet:
-            st.success("📦 РЕЖИМ: ЛИСТ")
-            L_s, W_s = st.number_input("Лист Длина (мм)", 2500), st.number_input("Лист Ширина (мм)", 1250)
-            L_d, W_d = st.number_input("Деталь Длина (мм)", 600), st.number_input("Деталь Ширина (мм)", 400)
-            Qty = st.number_input("Кол-во шт", 1, 5000, 10)
+            st.success("📦 РЕЖИМ: 3D ЛИСТ")
+            L_s, W_s = st.number_input("Длина листа (мм)", 2500), st.number_input("Ширина листа (мм)", 1250)
+            Qty = st.number_input("Кол-во листов (шт)", 1, 100, 1)
         else:
-            st.info("🏗️ РЕЖИМ: КАРКАС")
-            L_f, W_f, H_f = st.number_input("L (мм)", 2000), st.number_input("W (мм)", 1000), st.number_input("H (мм)", 800)
-            
-            # Авто-поиск размеров сечения для малярки
-            dims = re.findall(r'(\d+(?:\.\d+)?)', selected_mat)
-            if is_round and dims:
-                diam = float(dims[0])
-                st.caption(f"Определен диаметр: {diam} мм")
-            elif len(dims) >= 2:
-                A_def, B_def = float(dims[0]), float(dims[1])
-                A = st.number_input("Сторона A (мм)", value=int(A_def))
-                B = st.number_input("Сторона B (мм)", value=int(B_def))
-            else:
-                A = st.number_input("Сторона A (мм)", 40)
-                B = st.number_input("Сторона B (мм)", 20)
+            st.info("🏗️ РЕЖИМ: 3D КАРКАС")
+            L_f, W_f, H_f = st.number_input("Длина L (мм)", 2500), st.number_input("Ширина W (мм)", 1200), st.number_input("Высота H (мм)", 1000)
+        
+        calc = st.button("🚀 ПОСТРОИТЬ В 3D", use_container_width=True)
 
-        calc = st.button("🚀 РАСЧИТАТЬ", use_container_width=True)
-
-# --- 4. ЛОГИКА И ВЫВОД ---
+# --- 4. РАСЧЕТ И ВИЗУАЛИЗАЦИЯ ---
 if calc and all_prices:
-    if not is_sheet:
-        # --- ТРУБА ---
-        pure_len = ((L_f*4)+(W_f*4)+(H_f*4))/1000
-        real_len = pure_len * 1.05
-        weight_t = real_len * data['weight']
-        cost_t = (weight_t * data['price']) * 1.10
+    if is_sheet:
+        # ЛОГИКА 3D ЛИСТА
+        thick = data['thick']
+        total_w = data['weight'] * Qty
+        total_c = total_w * data['price']
         
-        if is_round:
-            paint_s = (math.pi * diam / 1000) * real_len
-        else:
-            paint_s = ((A + B) * 2 / 1000) * real_len
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Толщина", f"{thick} мм")
+        c2.metric("Общий вес", f"{total_w:.1f} кг")
+        c3.metric("Цена", f"{total_c:.0f} грн")
 
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Вес", f"{weight_t:.1f} кг")
-        c2.metric("Метраж", f"{real_len:.1f} м")
-        c3.metric("Малярка", f"{paint_s:.2f} м²")
-        c4.metric("Смета", f"{cost_t:.0f} грн")
-
-        # 3D
-        x, y, z = [], [], []
-        edges = [([0,L_f],[0,0],[0,0]), ([0,L_f],[W_f,W_f],[0,0]), ([0,L_f],[0,0],[H_f,H_f]), ([0,L_f],[W_f,W_f],[H_f,H_f]),
-                 ([0,0],[0,W_f],[0,0]), ([L_f,L_f],[0,W_f],[0,0]), ([0,0],[0,W_f],[H_f,H_f]), ([L_f,L_f],[0,W_f],[H_f,H_f]),
-                 ([0,0],[0,0],[0,H_f]), ([L_f,L_f],[0,0],[0,H_f]), ([0,0],[W_f,W_f],[0,H_f]), ([L_f,L_f],[W_f,W_f],[0,H_f])]
-        for e in edges:
-            x.extend([e[0][0], e[0][1], None]); y.extend([e[1][0], e[1][1], None]); z.extend([e[2][0], e[2][1], None])
-        
-        fig = go.Figure(data=go.Scatter3d(x=x, y=y, z=z, mode='lines', line=dict(color='#00c6ff', width=8)))
-        fig.update_layout(scene=dict(aspectmode='data'), paper_bgcolor='#0e1117', height=600)
+        # Рисуем 3D Лист (как параллелепипед)
+        fig = go.Figure()
+        # Нижняя грань
+        fig.add_trace(go.Mesh3d(
+            x=[0, L_s, L_s, 0, 0, L_s, L_s, 0],
+            y=[0, 0, W_s, W_s, 0, 0, W_s, W_s],
+            z=[0, 0, 0, 0, thick, thick, thick, thick],
+            i=[7, 0, 0, 0, 4, 4, 6, 6, 4, 0, 3, 2],
+            j=[3, 4, 1, 2, 5, 6, 5, 2, 0, 1, 6, 3],
+            k=[0, 7, 2, 3, 6, 7, 1, 1, 5, 5, 7, 6],
+            color='royalblue', opacity=0.7, name=f"Лист {thick}мм"
+        ))
+        fig.update_layout(scene=dict(aspectmode='data', xaxis_title='Длина', yaxis_title='Ширина', zaxis_title='Толщина'), paper_bgcolor='#0e1117', height=600)
         st.plotly_chart(fig, use_container_width=True)
         
-        st.subheader("🤖 nanoCAD")
-        st.code(f"(defun c:IronFrame () (command \"_BOX\" '(0 0 0) \"_L\" {float(L_f)} {float(W_f)} {float(H_f)}) (princ))", language="lisp")
+        # Совет по сварке
+        if thick < 2.0:
+            st.warning(f"⚠️ Лист {thick}мм очень тонкий! Варить на малых токах (30-50А), короткими стежками.")
+        elif thick >= 4.0:
+            st.info(f"💡 Лист {thick}мм массивный. Для качественного шва делай разделку кромок под 45°.")
 
     else:
-        # --- ЛИСТ ---
-        cols, rows = L_s // L_d, W_s // W_d
-        on_sheet = int(cols * rows)
-        if on_sheet > 0:
-            needed = -(-Qty // on_sheet)
-            # Для листов в твоем прайсе цена за лист или за кг? 
-            # В коде ниже считаем: Вес одного листа * Цена из прайса * Кол-во листов
-            # (Если в прайсе цена за КГ - то убери деление на 1.0 в формуле цены)
-            w_total = data['weight'] * needed
-            c_total = w_total * data['price']
-            
-            c1, c2, c3 = st.columns(3)
-            c1.metric("На листе", f"{on_sheet} шт")
-            c2.metric("Листов", f"{needed} шт")
-            c3.metric("Вес/Цена", f"{w_total:.1f}кг / {c_total:.0f}грн")
+        # ЛОГИКА 3D КАРКАСА (как в v9.9)
+        pure_m = ((L_f*4)+(W_f*4)+(H_f*4))/1000
+        weight_t = pure_m * 1.05 * data['weight']
+        
+        st.metric("Параметры каркаса", f"{weight_t:.1f} кг | {pure_m:.1f} м")
+        
+        x_c = [0,L_f,L_f,0,0,0,L_f,L_f,0,0,0,0,L_f,L_f,L_f,L_f]
+        y_c = [0,0,W_f,W_f,0,0,0,W_f,W_f,0,W_f,W_f,W_f,W_f,0,0]
+        z_c = [0,0,0,0,0,H_f,H_f,H_f,H_f,H_f,H_f,0,0,H_f,H_f,0]
+        
+        fig = go.Figure(data=go.Scatter3d(x=x_c, y=y_c, z=z_c, mode='lines', line=dict(color='#00c6ff', width=8)))
+        fig.update_layout(scene=dict(aspectmode='data'), paper_bgcolor='#0e1117', height=600)
+        st.plotly_chart(fig, use_container_width=True)
 
-            fig = go.Figure()
-            fig.add_shape(type="rect", x0=0, y0=0, x1=L_s, y1=W_s, line=dict(color="Cyan", width=3), fillcolor="rgba(0,200,255,0.1)")
-            idx = 0
-            for r in range(int(rows)):
-                for c in range(int(cols)):
-                    if idx < Qty:
-                        fig.add_shape(type="rect", x0=c*L_d, y0=r*W_d, x1=(c+1)*L_d, y1=(r+1)*W_d, line=dict(color="White"), fillcolor="Orange")
-                        idx += 1
-            fig.update_layout(xaxis=dict(range=[-50, L_s+50]), yaxis=dict(range=[-50, W_s+50]), paper_bgcolor='#0e1117', plot_bgcolor='#0e1117', height=500)
-            st.plotly_chart(fig)
-            
-            st.code(f"(defun c:IronSheet () (command \"_RECTANG\" '(0 0) '({float(L_s)} {float(W_s)})) (princ))", language="lisp")
-            
+    # ОБЩАЯ КНОПКА LISP
+    st.subheader("🤖 Код для nanoCAD")
+    if is_sheet:
+        lisp = f"(defun c:IronSheet () (command \"_BOX\" '(0 0 0) \"_L\" {float(L_s)} {float(W_s)} {float(thick)}) (princ))"
+    else:
+        lisp = f"(defun c:IronFrame () (command \"_BOX\" '(0 0 0) \"_L\" {float(L_f)} {float(W_f)} {float(H_f)}) (princ))"
+    st.code(lisp, language="lisp")
+    
