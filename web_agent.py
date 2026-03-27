@@ -5,7 +5,7 @@ import re
 from fpdf import FPDF
 
 # --- 1. СТИЛИ ---
-st.set_page_config(page_title="IRON WORKS v12.2", layout="wide", page_icon="🏗️")
+st.set_page_config(page_title="IRON WORKS v12.3", layout="wide", page_icon="🏗️")
 st.markdown("""
     <style>
     .stMetric { background: #1e2130; padding: 10px; border-radius: 10px; border: 1px solid #00c6ff; }
@@ -16,7 +16,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div style="background: linear-gradient(90deg, #1e2130, #0072ff); padding: 20px; border-radius: 15px; text-align: center; border: 2px solid #00c6ff; margin-bottom: 25px;"><p style="color: white; font-size: 42px; font-weight: 900; margin: 0;">🏗️ IRON WORKS</p><p style="color: #00c6ff; font-size: 16px; margin: 0;">ROMAN_DEV | FULL ESTIMATE v12.2</p></div>', unsafe_allow_html=True)
+st.markdown('<div style="background: linear-gradient(90deg, #1e2130, #0072ff); padding: 20px; border-radius: 15px; text-align: center; border: 2px solid #00c6ff; margin-bottom: 25px;"><p style="color: white; font-size: 42px; font-weight: 900; margin: 0;">🏗️ IRON WORKS</p><p style="color: #00c6ff; font-size: 16px; margin: 0;">ROMAN_DEV | STABLE RELEASE v12.3</p></div>', unsafe_allow_html=True)
 
 # --- 2. ЛОГИКА СВАРКИ ---
 def get_welding_advice(thick):
@@ -72,80 +72,77 @@ def generate_pdf_bytes(res, weld):
         pdf.add_font('Arial', '', f_p); pdf.set_font('Arial', '', 14)
     else:
         pdf.set_font("Helvetica", size=12)
-    pdf.cell(200, 10, txt=f"СМЕТА И ТЕХ-КАРТА: {res['name']}", ln=True, align='C')
+    pdf.cell(200, 10, txt=f"СМЕТА: {res['name']}", ln=True, align='C')
     pdf.ln(5)
     for k, v in res['metrics'].items():
         pdf.cell(200, 8, txt=f"{k}: {v}", ln=True)
     pdf.ln(5)
-    pdf.multi_cell(0, 8, txt=f"СВАРКА: {weld['crit']}. Ток: {weld['amp']}. Метод: {weld['meth']}")
+    pdf.multi_cell(0, 8, txt=f"ИНЖЕНЕРКА: {weld['crit']}. Ток: {weld['amp']}. Метод: {weld['meth']}")
     return bytes(pdf.output())
 
-# --- 6. ИНТЕРФЕЙС ---
+# --- 6. ИНТЕРФЕЙС (ФИКС ОШИБКИ) ---
 with st.sidebar:
     if all_prices:
-        sel = st.selectbox("МАТЕРИАЛ:", options=list(all_prices.keys()))
+        sel = st.selectbox("ВЫБОР МАТЕРИАЛА:", options=list(all_prices.keys()))
         data = all_prices[sel]
         is_sheet = "Лист" in sel
         st.divider()
         if is_sheet:
-            Ls, Ws = st.number_input("Лист L", 2500), st.number_input("Лист W", 1250)
-            Ld, Wd = st.number_input("Деталь l", 600), st.number_input("Деталь w", 400)
-            Qty = st.number_input("Кол-во", 10, 1)
+            Ls = st.number_input("Лист L", value=2500.0) # Убраны min/max для стабильности
+            Ws = st.number_input("Лист W", value=1250.0)
+            Ld = st.number_input("Деталь l", value=600.0)
+            Wd = st.number_input("Деталь w", value=400.0)
+            Qty = st.number_input("Кол-во", value=10, min_value=1)
         else:
-            Lf, Wf, Hf = st.number_input("L", 2000), st.number_input("W", 1000), st.number_input("H", 1200)
-            stock_m = st.number_input("Длина палки (м)", 6.0)
-        calc = st.button("🚀 РАССЧИТАТЬ СМЕТУ", use_container_width=True)
+            Lf = st.number_input("Рама L (мм)", value=2000.0)
+            Wf = st.number_input("Рама W (мм)", value=1000.0)
+            Hf = st.number_input("Рама H (мм)", value=1200.0)
+            stock_m = st.number_input("Длина трубы (м)", value=6.0)
+        calc = st.button("🚀 РАССЧИТАТЬ", use_container_width=True)
 
-# --- 7. ОСНОВНОЙ РАСЧЕТ ---
+# --- 7. РАСЧЕТ ---
 if calc and all_prices:
     thick = data['thick']
     weld = get_welding_advice(thick)
     report = {"name": sel, "metrics": {}}
     
     if is_sheet:
-        on_sheet = (Ls // Ld) * (Ws // Wd)
-        needed = -(-Qty // on_sheet) if on_sheet > 0 else 1
+        on_sheet = max(1, (Ls // Ld) * (Ws // Wd))
+        needed = -(-Qty // on_sheet)
         w_buy = data['weight'] * needed
-        w_clear = (Ld * Wd * Qty / (Ls * Ws)) * w_buy
-        waste = ((w_buy - w_clear) / w_buy) * 100
-        total_cost = w_buy * data['price'] * 1.1 # +10% расходники
+        w_clear = (Ld * Wd * Qty / max(1, (Ls * Ws))) * w_buy
+        waste = ((w_buy - w_clear) / max(1, w_buy)) * 100
+        total_cost = w_buy * data['price'] * 1.1 
         
-        report["metrics"] = {"Листов": needed, "Вес закупки": f"{w_buy:.1f}кг", "Чистый вес": f"{w_clear:.1f}кг", "Отход": f"{waste:.1f}%", "СМЕТА": f"{total_cost:.0f} грн"}
+        report["metrics"] = {"Листов": int(needed), "Вес закупки": f"{w_buy:.1f}кг", "Отход": f"{waste:.1f}%", "СМЕТА": f"{total_cost:.0f}грн"}
         
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Закупка", f"{w_buy:.1f} кг")
         c2.metric("Чистый вес", f"{w_clear:.1f} кг")
         c3.metric("Отход", f"{waste:.1f}%", delta=f"{w_buy-w_clear:.1f} кг", delta_color="inverse")
-        c4.metric("ИТОГО ГРН", f"{total_cost:.0f}")
+        c4.metric("СМЕТА ГРН", f"{total_cost:.0f}")
     else:
         m_total = (Lf*4 + Wf*4 + Hf*4) / 1000
-        needed_p = -(-m_total // stock_m)
+        needed_p = -(-m_total // max(0.1, stock_m))
         w_buy = needed_p * stock_m * data['weight']
         w_clear = m_total * data['weight']
-        waste = ((w_buy - w_clear) / w_buy) * 100
+        waste = ((w_buy - w_clear) / max(1, w_buy)) * 100
         total_cost = w_buy * data['price'] * 1.1
         
-        report["metrics"] = {"Палки (шт)": needed_p, "Метраж чистый": f"{m_total:.2f}м", "Вес закупки": f"{w_buy:.1f}кг", "Отход": f"{waste:.1f}%", "СМЕТА": f"{total_cost:.0f} грн"}
+        report["metrics"] = {"Палки": int(needed_p), "Метраж": f"{m_total:.1f}м", "Вес": f"{w_buy:.1f}кг", "СМЕТА": f"{total_cost:.0f}грн"}
         
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Закупка", f"{w_buy:.1f} кг")
         c2.metric("Метраж", f"{m_total:.1f} м")
         c3.metric("Отход", f"{waste:.1f}%", delta=f"{(needed_p*stock_m)-m_total:.1f} м", delta_color="inverse")
-        c4.metric("ИТОГО ГРН", f"{total_cost:.0f}")
+        c4.metric("СМЕТА ГРН", f"{total_cost:.0f}")
 
-    # БЛОК ИНЖЕНЕРА
     if waste > 20:
-        st.markdown(f'<div class="waste-card">⚠️ Высокий отход металла! ({waste:.1f}%)</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="waste-card">⚠️ Высокий отход! ({waste:.1f}%)</div>', unsafe_allow_html=True)
 
-    st.subheader("🛡️ Инженерно-сварочная карта")
-    st.markdown(f"""
-    <div class="eng-card {weld['cls']}">
-        <b>Критичность:</b> {weld['crit']} | <b>Метод:</b> {weld['meth']}<br>
-        <b>Ток:</b> {weld['amp']} | <b>Электрод:</b> {weld['el']}
-    </div>
-    """, unsafe_allow_html=True)
+    st.subheader("🛡️ Технология сварки")
+    st.markdown(f"""<div class="eng-card {weld['cls']}"><b>Критичность:</b> {weld['crit']} | <b>Метод:</b> {weld['meth']}<br><b>Ток:</b> {weld['amp']} | <b>Электрод:</b> {weld['el']}</div>""", unsafe_allow_html=True)
 
-    # 3D И ЭКСПОРТ
     fig = go.Figure()
     x, y, z = get_clean_box_coords(0,0,0, Ls if is_sheet else Lf, Ws if is_sheet else Wf, thick if is_sheet else Hf)
     fig.add_trace(go.Scatter3d(x=x, y=y, z=z, mode='lines', line=dict(color='#00c6ff', width=5)))
@@ -154,5 +151,5 @@ if calc and all_prices:
 
     col_a, col_b = st.columns(2)
     with col_a: st.code(f"(defun c:IronCAD () (command \"_BOX\" '(0 0 0) \"_L\" {Ls if is_sheet else Lf} {Ws if is_sheet else Wf} {thick if is_sheet else Hf}) (princ))", language="lisp")
-    with col_b: st.download_button("📥 СКАЧАТЬ ПОЛНУЮ СМЕТУ (PDF)", data=generate_pdf_bytes(report, weld), file_name="iron_estimate.pdf")
+    with col_b: st.download_button("📥 СКАЧАТЬ PDF СМЕТУ", data=generate_pdf_bytes(report, weld), file_name="iron_works_estimate.pdf")
     
