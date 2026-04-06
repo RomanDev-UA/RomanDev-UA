@@ -37,5 +37,5 @@
 📍 **Локация:** Полтава, Украина
 📫 **Связь со мной:** [https://www.upwork.com/freelancers/~0130695474d1217298]
 
-
+[Telegram]
 https://t.me/RomanDev79
