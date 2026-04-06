@@ -77,3 +77,4 @@ I am a transition specialist moving from 20 years in the heavy industrial sector
 * **Location:** Poltava, Ukraine 🇺🇦
 * **Telegram:** [Your Profile Link](https://t.me/твой_никнейм)
 * **GitHub:** [RomanDev-UA](https://github.com/RomanDev-UA)
+* **UPWORK** [https://www.upwork.com/freelancers/~0130695474d1217298]
